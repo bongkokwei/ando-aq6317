@@ -8,7 +8,7 @@ Python driver for the **ANDO AQ6317 / AQ6317B** optical spectrum analyzer, built
 pip install -r requirements.txt
 ```
 
-You also need a VISA backend: either [NI-VISA](https://www.ni.com/en/support/downloads/drivers/download.ni-visa.html), or the pure-Python `pyvisa-py` backend (already listed in `requirements.txt`) for GPIB-USB/USB-TMC/serial access.
+You also need a VISA backend: either [NI-VISA](https://www.ni.com/en/support/downloads/drivers/download.ni-visa.html), or the pure-Python `pyvisa-py` backend (already listed in `requirements.txt`, including its `psutil` and `hislip-discovery` extras so TCPIP resource discovery can scan all network interfaces without warnings) for GPIB-USB/USB-TMC/serial access.
 
 ## Connecting
 
