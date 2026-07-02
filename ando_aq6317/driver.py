@@ -3,12 +3,11 @@
 Communicates over GPIB (or any other PyVISA-supported interface the
 instrument is configured for) using the analyzer's native ASCII command
 set (the same set used in "AQ6317-compatible" mode on later Yokogawa OSAs).
-The query mnemonics below (``CTRWL``, ``SPAN``, ``WDAT``/``LDAT``, ...) are
-confirmed against a working session log for this instrument family; the
-"set" syntax (mnemonic + space + value) is the standard convention for
-these instruments but was not independently verified against a physical
-unit, so double check it against your AQ6317's programming manual if a
-setter does not behave as expected.
+Commands here are cross-checked against Table 2-14 ("AQ6317-compatible
+Commands") of the Yokogawa AQ6319 Program/Remote Function Manual
+(AS-62642-02Y) and a working GPIB session log for this instrument family.
+Legacy AQ6317 commands take their parameter directly appended with no
+separator (e.g. ``CTRWL1550.00``), unlike SCPI's `<mnemonic> <value>` form.
 """
 
 from __future__ import annotations
@@ -42,6 +41,7 @@ class AQ6317:
     SENSITIVITY_MODES = {
         "hold": "SNHD",   # normal range, hold
         "auto": "SNAT",   # normal range, auto
+        "mid": "SMID",
         "high1": "SHI1",
         "high2": "SHI2",
         "high3": "SHI3",
@@ -144,43 +144,43 @@ class AQ6317:
 
     # -- measurement parameters --------------------------------------------------
     def set_center_wavelength(self, nm: float) -> None:
-        self.write(f"CTRWL {nm:.4f}")
+        self.write(f"CTRWL{nm:.2f}")
 
     def get_center_wavelength(self) -> float:
         return self.query_float("CTRWL?")
 
     def set_span(self, nm: float) -> None:
-        self.write(f"SPAN {nm:.4f}")
+        self.write(f"SPAN{nm:.1f}")
 
     def get_span(self) -> float:
         return self.query_float("SPAN?")
 
     def set_start_wavelength(self, nm: float) -> None:
-        self.write(f"STAWL {nm:.4f}")
+        self.write(f"STAWL{nm:.2f}")
 
     def get_start_wavelength(self) -> float:
         return self.query_float("STAWL?")
 
     def set_stop_wavelength(self, nm: float) -> None:
-        self.write(f"STPWL {nm:.4f}")
+        self.write(f"STPWL{nm:.2f}")
 
     def get_stop_wavelength(self) -> float:
         return self.query_float("STPWL?")
 
     def set_resolution(self, nm: float) -> None:
-        self.write(f"RESLN {nm:.2f}")
+        self.write(f"RESLN{nm:.2f}")
 
     def get_resolution(self) -> float:
         return self.query_float("RESLN?")
 
     def set_reference_level(self, level: float) -> None:
-        self.write(f"REFL {level:.2f}")
+        self.write(f"REFL{level:.1f}")
 
     def get_reference_level(self) -> float:
         return self.query_float("REFL?")
 
     def set_sample_points(self, n: int) -> None:
-        self.write(f"SEGP {int(n)}")
+        self.write(f"SEGP{int(n)}")
 
     def get_sample_points(self) -> int:
         return self.query_int("SEGP?")

@@ -55,7 +55,7 @@ See `examples/basic_scan.py` and `examples/live_plot.py` for runnable scripts.
 
 ## Command set note
 
-The AQ6317 family speaks a short ASCII mnemonic command set (`CTRWL`, `SPAN`, `SGL`, `WDATA`/`LDATA`, ...) rather than full SCPI — the same set exposed by later Yokogawa OSAs in their "AQ6317-compatible" mode. The query mnemonics and trace-data format used in this driver were cross-checked against a working GPIB session log for this instrument family. The "set" syntax (`MNEMONIC <value>`) follows the standard convention for these instruments but wasn't verified against physical hardware here — if a setter doesn't behave as expected on your unit, check the exact syntax in your AQ6317's programming manual and adjust the relevant method in `ando_aq6317/driver.py`.
+The AQ6317 family speaks a short ASCII mnemonic command set (`CTRWL`, `SPAN`, `SGL`, `WDATA`/`LDATA`, ...) rather than full SCPI — the same set exposed by later Yokogawa OSAs in their "AQ6317-compatible" mode. Every command and its syntax in this driver is cross-checked against Table 2-14, "AQ6317-compatible Commands," in the Yokogawa AQ6319 Program/Remote Function Manual (AS-62642-02Y), plus a working GPIB session log for this instrument family. Note that legacy AQ6317 commands take their parameter directly appended with no separator (e.g. `CTRWL1550.00`), unlike the `<mnemonic> <value>` form used by SCPI.
 
 ## API overview
 
