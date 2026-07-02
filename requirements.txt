@@ -1,4 +1,4 @@
 pyvisa>=1.13
-pyvisa-py[psutil,hislip-discovery]>=0.7
+pyvisa-py[psutil,hislip-discovery,gpib-ctypes]>=0.7
 numpy>=1.24
 matplotlib>=3.7
