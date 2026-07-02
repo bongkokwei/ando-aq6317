@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ando-aq6317"
+version = "0.1.0"
+description = "Python driver for the ANDO AQ6317 / AQ6317B optical spectrum analyzer"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "pyvisa>=1.13",
+    "numpy>=1.24",
+    "matplotlib>=3.7",
+]
+
+[tool.setuptools.packages.find]
+include = ["ando_aq6317*"]
