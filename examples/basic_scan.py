@@ -2,15 +2,17 @@
 
 from ando_aq6317 import AQ6317
 
-RESOURCE = "GPIB0::1::INSTR"  # update to match your instrument's GPIB address
+print(AQ6317.list_resources())  # discover connected VISA resources
+
+RESOURCE = "GPIB1::1::INSTR"  # update to match your instrument's GPIB address
 
 with AQ6317(RESOURCE) as osa:
     print(osa.identify())
 
     osa.set_center_wavelength(1550.0)
     osa.set_span(50.0)
-    osa.set_resolution(0.5)
-    osa.set_sensitivity("high1")
+    osa.set_resolution(0.05)
+    osa.set_sensitivity("mid")
 
     trace = osa.sweep_and_fetch()
     print(f"Captured {len(trace)} points on trace {trace.trace}")
