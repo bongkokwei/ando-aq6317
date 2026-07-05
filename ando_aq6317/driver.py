@@ -134,13 +134,14 @@ class AQ6317:
 
     # -- active trace ------------------------------------------------------------
     def get_active_trace(self) -> str:
-        return self.TRACES[self.query_int("ACTV?")]
+        response = self.query("ACTV?").strip().upper()
+        return response[2:] if response.startswith("TR") else response
 
     def set_active_trace(self, trace: str) -> None:
         trace = trace.upper()
         if trace not in self.TRACES:
             raise ValueError(f"trace must be one of {self.TRACES}")
-        self.write(f"ACTV{trace}")
+        self.write(f"ACTVTR{trace}")
 
     # -- measurement parameters --------------------------------------------------
     def set_center_wavelength(self, nm: float) -> None:
