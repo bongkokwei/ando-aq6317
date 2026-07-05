@@ -309,10 +309,10 @@ class AQ6317:
         fig.show()
 
         self.repeat_sweep()
+        self.wait_for_sweep_complete()  # block until the first sweep has data
         frame = 0
         try:
             while plt.fignum_exists(fig.number) and (n_frames is None or frame < n_frames):
-                self.wait_for_sweep_complete()
                 data = self.get_trace(trace)
 
                 line.set_data(data.wavelength_nm, data.level)
