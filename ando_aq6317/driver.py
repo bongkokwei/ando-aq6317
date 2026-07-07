@@ -148,6 +148,95 @@ class AQ6317:
             raise ValueError(f"trace must be one of {self.TRACES}")
         self.write(f"ACTV{self.TRACES.index(trace)}")
 
+    # -- trace mode / math ---------------------------------------------------------
+    # Table 2-14 only documents WRITE/FIX for all of A-C, but MAX HOLD only for
+    # trace A (MAXA) and MIN HOLD only for trace B (MINB) - a real AQ6317
+    # hardware limitation, not an omission here.
+    _MODE_CODES = {"write": 0, "fix": 1, "max": 2, "min": 3, "ravg": 4, "calc": 5}
+    _CODE_MODES = {code: mode for mode, code in _MODE_CODES.items()}
+    _TRACE_MODE_COMMANDS = {
+        ("A", "write"): "WRTA",
+        ("B", "write"): "WRTB",
+        ("C", "write"): "WRTC",
+        ("A", "fix"): "FIXA",
+        ("B", "fix"): "FIXB",
+        ("C", "fix"): "FIXC",
+        ("A", "max"): "MAXA",
+        ("B", "min"): "MINB",
+    }
+
+    def set_trace_mode(self, trace: str, mode: str) -> None:
+        """Set a trace's attribute: write (live), fix (frozen), max/min hold.
+
+        Use `set_rolling_average` for roll-avg mode and `calculate` for calc
+        mode - both need an extra parameter the plain WRITE/FIX/MAX/MIN
+        mnemonics don't take.
+        """
+        trace = trace.upper()
+        mode = mode.lower()
+        if trace not in self.TRACES:
+            raise ValueError(f"trace must be one of {self.TRACES}")
+        if mode not in self._MODE_CODES:
+            raise ValueError(f"mode must be one of {sorted(self._MODE_CODES)}")
+        command = self._TRACE_MODE_COMMANDS.get((trace, mode))
+        if command is None:
+            raise ValueError(
+                f"trace {trace} does not support mode {mode!r} in "
+                "AQ6317-compatible mode"
+            )
+        self.write(command)
+
+    def get_trace_mode(self, trace: str) -> str:
+        trace = trace.upper()
+        if trace not in self.TRACES:
+            raise ValueError(f"trace must be one of {self.TRACES}")
+        code = self.query_int(f"TR{trace}?")
+        return self._CODE_MODES.get(code, f"unknown({code})")
+
+    def set_rolling_average(self, trace: str, count: int) -> None:
+        """Set trace A or B to rolling-average mode over `count` sweeps.
+
+        Only traces A and B support ROLL AVG in AQ6317-compatible mode
+        (RAVA/RAVB); there is no RAVC.
+        """
+        trace = trace.upper()
+        if trace not in ("A", "B"):
+            raise ValueError("rolling average is only available on trace A or B")
+        mnemonic = "RAVA" if trace == "A" else "RAVB"
+        self.write(f"{mnemonic}{int(count)}")
+
+    _CALC_COMMANDS = {
+        ("a+b", "lin"): "A+BCL",
+        ("a-b", "log"): "A-BC",
+        ("a-b", "lin"): "A-BCL",
+        ("b-a", "log"): "B-AC",
+        ("b-a", "lin"): "B-ACL",
+    }
+    _CALC_K_COMMANDS = {"1-k(a/b)": "KABC", "1-k(b/a)": "KBAC"}
+
+    def calculate(self, operation: str, scale: str = "log") -> None:
+        """Compute a trace-math expression into trace C.
+
+        `operation` is one of "a+b", "a-b", "b-a", "1-k(a/b)", "1-k(b/a)".
+        `scale` ("log" or "lin") is ignored for the two "1-k(...)" ratio
+        operations, and "a+b" only has a "lin" form in AQ6317-compatible mode.
+        Use `set_calc_coefficient` to set K before a "1-k(...)" operation.
+        """
+        operation = operation.lower()
+        if operation in self._CALC_K_COMMANDS:
+            self.write(self._CALC_K_COMMANDS[operation])
+            return
+        command = self._CALC_COMMANDS.get((operation, scale.lower()))
+        if command is None:
+            raise ValueError(
+                f"unsupported operation/scale combination: {operation!r}/{scale!r}"
+            )
+        self.write(command)
+
+    def set_calc_coefficient(self, k: float) -> None:
+        """Set the K coefficient used by the "1-k(a/b)" / "1-k(b/a)" trace math."""
+        self.write(f"KABCK{k:.4f}")
+
     # -- measurement parameters --------------------------------------------------
     def set_center_wavelength(self, nm: float) -> None:
         self.write(f"CTRWL{nm:.2f}")
