@@ -63,6 +63,7 @@ The AQ6317 family speaks a short ASCII mnemonic command set (`CTRWL`, `SPAN`, `S
 
 - Sweep control: `single_sweep`, `repeat_sweep`, `stop_sweep`, `is_sweeping`, `wait_for_sweep`
 - Trace selection: `get_active_trace`, `set_active_trace`
+- Trace mode/math: `{get,set}_trace_mode` (write | fix | max | min), `set_rolling_average`, `calculate`, `set_calc_coefficient`
 - Parameters: `{get,set}_center_wavelength`, `{get,set}_span`, `{get,set}_start_wavelength`, `{get,set}_stop_wavelength`, `{get,set}_resolution`, `{get,set}_reference_level`, `{get,set}_sample_points`, `{get,set}_sensitivity`
 - Data: `get_wavelength_data`, `get_level_data`, `get_level_unit`, `get_trace`, `sweep_and_fetch`
 - Plotting: `plot_trace`, `live_plot`
