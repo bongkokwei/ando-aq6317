@@ -12,6 +12,8 @@ separator (e.g. ``CTRWL1550.00``), unlike SCPI's `<mnemonic> <value>` form.
 
 from __future__ import annotations
 
+import queue
+import threading
 import time
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -269,10 +271,30 @@ class AQ6317:
         trace: Optional[str] = None,
         interval: float = 1.0,
         n_frames: Optional[int] = None,
-        sweep_each_frame: bool = True,
     ):
-        """Repeatedly sweep/fetch and update a matplotlib plot until the window is closed."""
+        """Use the instrument's repeat-sweep mode to drive a live plot.
+
+        Sends ``RPT`` once to start continuous sweeping, then repeatedly
+        reads whatever trace is currently in the instrument's buffer and
+        updates the plot.  Sends ``STP`` when the window is closed or
+        *n_frames* is reached.
+
+        Note: ``SWEEP?`` does not reliably report an idle state while
+        ``RPT`` is running, so frames are paced purely by *interval*
+        rather than by polling for sweep completion.
+
+        Only ``LDAT`` (the level trace) changes between sweeps, so the
+        wavelength axis and level unit are fetched once up front rather
+        than being re-queried every frame.
+
+        The ``LDAT`` polling itself runs on a background thread so the
+        main thread's event loop stays free to handle window redraws
+        (e.g. dragging/resizing) instead of blocking on the GPIB
+        round-trip for the whole *interval*.
+        """
         import matplotlib.pyplot as plt
+
+        trace = (trace or self.get_active_trace()).upper()
 
         fig, ax = plt.subplots(figsize=(8, 5))
         (line,) = ax.plot([], [])
@@ -283,21 +305,52 @@ class AQ6317:
         plt.ion()
         fig.show()
 
+        self.repeat_sweep()
+        wavelength_nm = self.get_wavelength_data(trace)
+        level_unit = self.get_level_unit()
+        ax.set_ylabel(f"Level ({level_unit})")
+
+        data_queue: "queue.Queue[np.ndarray]" = queue.Queue(maxsize=1)
+        stop_event = threading.Event()
+
+        def poll_levels() -> None:
+            while not stop_event.is_set():
+                try:
+                    level = self.get_level_data(trace)
+                except Exception:
+                    continue
+                # Keep only the freshest reading; drop any stale one.
+                try:
+                    data_queue.get_nowait()
+                except queue.Empty:
+                    pass
+                data_queue.put(level)
+                stop_event.wait(interval)
+
+        fetcher = threading.Thread(target=poll_levels, daemon=True)
+        fetcher.start()
+
         frame = 0
         try:
             while plt.fignum_exists(fig.number) and (n_frames is None or frame < n_frames):
-                data = self.sweep_and_fetch(trace) if sweep_each_frame else self.get_trace(trace)
+                try:
+                    level = data_queue.get(timeout=0.05)
+                except queue.Empty:
+                    plt.pause(0.05)
+                    continue
 
-                line.set_data(data.wavelength_nm, data.level)
+                line.set_data(wavelength_nm, level)
                 ax.relim()
                 ax.autoscale_view()
-                ax.set_ylabel(f"Level ({data.level_unit})")
                 fig.canvas.draw_idle()
                 fig.canvas.flush_events()
 
                 frame += 1
-                plt.pause(interval)
+                plt.pause(0.01)
         finally:
+            stop_event.set()
+            fetcher.join(timeout=max(interval, 1.0) + 2.0)
+            self.stop_sweep()
             plt.ioff()
 
         return fig, ax
