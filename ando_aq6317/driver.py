@@ -264,27 +264,6 @@ class AQ6317:
             plt.show()
         return fig, ax
 
-    def wait_for_sweep_complete(self, poll_interval: float = 0.1, timeout: float = 1200.0) -> None:
-        """Wait for any in-progress sweep to finish (SWEEP? transitions to 0).
-
-        In repeat mode the instrument may still be mid-sweep when this is
-        called, so we first wait for sweeping to begin (in case we catch a
-        brief gap between sweeps) and then wait for it to end.
-        """
-        start = time.monotonic()
-        # If not yet sweeping, wait up to 2 s for the next sweep to start
-        # before falling through to the completion wait below.
-        deadline = min(start + 2.0, start + timeout)
-        while not self.is_sweeping():
-            if time.monotonic() > deadline:
-                break
-            time.sleep(poll_interval)
-        # Now wait for the sweep to finish
-        while self.is_sweeping():
-            if time.monotonic() - start > timeout:
-                raise TimeoutError("Timed out waiting for the OSA sweep to complete.")
-            time.sleep(poll_interval)
-
     def live_plot(
         self,
         trace: Optional[str] = None,
@@ -293,9 +272,14 @@ class AQ6317:
     ):
         """Use the instrument's repeat-sweep mode to drive a live plot.
 
-        Sends ``RPT`` once to start continuous sweeping, then after each
-        sweep completes reads the trace and updates the plot.  Sends
-        ``STP`` when the window is closed or *n_frames* is reached.
+        Sends ``RPT`` once to start continuous sweeping, then repeatedly
+        reads whatever trace is currently in the instrument's buffer and
+        updates the plot.  Sends ``STP`` when the window is closed or
+        *n_frames* is reached.
+
+        Note: ``SWEEP?`` does not reliably report an idle state while
+        ``RPT`` is running, so frames are paced purely by *interval*
+        rather than by polling for sweep completion.
         """
         import matplotlib.pyplot as plt
 
@@ -309,7 +293,6 @@ class AQ6317:
         fig.show()
 
         self.repeat_sweep()
-        self.wait_for_sweep_complete()  # block until the first sweep has data
         frame = 0
         try:
             while plt.fignum_exists(fig.number) and (n_frames is None or frame < n_frames):
