@@ -8,6 +8,10 @@ Commands") of the Yokogawa AQ6319 Program/Remote Function Manual
 (AS-62642-02Y) and a working GPIB session log for this instrument family.
 Legacy AQ6317 commands take their parameter directly appended with no
 separator (e.g. ``CTRWL1550.00``), unlike SCPI's `<mnemonic> <value>` form.
+Note: real AQ6317 firmware diverges from Table 2-14 for ``ACTV`` - it takes
+a numeric trace index (``ACTV0``/``1``/``2``), not the ``TRA``/``TRB``/``TRC``
+mnemonic the table documents for AQ6319's compatibility mode; confirmed via
+GPIB probing against real hardware.
 """
 
 from __future__ import annotations
@@ -142,7 +146,7 @@ class AQ6317:
         trace = trace.upper()
         if trace not in self.TRACES:
             raise ValueError(f"trace must be one of {self.TRACES}")
-        self.write(f"ACTV{trace}")
+        self.write(f"ACTV{self.TRACES.index(trace)}")
 
     # -- measurement parameters --------------------------------------------------
     def set_center_wavelength(self, nm: float) -> None:
