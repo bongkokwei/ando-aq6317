@@ -280,8 +280,14 @@ class AQ6317:
         Note: ``SWEEP?`` does not reliably report an idle state while
         ``RPT`` is running, so frames are paced purely by *interval*
         rather than by polling for sweep completion.
+
+        Only ``LDAT`` (the level trace) changes between sweeps, so the
+        wavelength axis and level unit are fetched once up front rather
+        than being re-queried every frame.
         """
         import matplotlib.pyplot as plt
+
+        trace = (trace or self.get_active_trace()).upper()
 
         fig, ax = plt.subplots(figsize=(8, 5))
         (line,) = ax.plot([], [])
@@ -293,15 +299,18 @@ class AQ6317:
         fig.show()
 
         self.repeat_sweep()
+        wavelength_nm = self.get_wavelength_data(trace)
+        level_unit = self.get_level_unit()
+        ax.set_ylabel(f"Level ({level_unit})")
+
         frame = 0
         try:
             while plt.fignum_exists(fig.number) and (n_frames is None or frame < n_frames):
-                data = self.get_trace(trace)
+                level = self.get_level_data(trace)
 
-                line.set_data(data.wavelength_nm, data.level)
+                line.set_data(wavelength_nm, level)
                 ax.relim()
                 ax.autoscale_view()
-                ax.set_ylabel(f"Level ({data.level_unit})")
                 fig.canvas.draw_idle()
                 fig.canvas.flush_events()
 
