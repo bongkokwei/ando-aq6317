@@ -12,6 +12,8 @@ separator (e.g. ``CTRWL1550.00``), unlike SCPI's `<mnemonic> <value>` form.
 
 from __future__ import annotations
 
+import queue
+import threading
 import time
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -284,6 +286,11 @@ class AQ6317:
         Only ``LDAT`` (the level trace) changes between sweeps, so the
         wavelength axis and level unit are fetched once up front rather
         than being re-queried every frame.
+
+        The ``LDAT`` polling itself runs on a background thread so the
+        main thread's event loop stays free to handle window redraws
+        (e.g. dragging/resizing) instead of blocking on the GPIB
+        round-trip for the whole *interval*.
         """
         import matplotlib.pyplot as plt
 
@@ -303,10 +310,34 @@ class AQ6317:
         level_unit = self.get_level_unit()
         ax.set_ylabel(f"Level ({level_unit})")
 
+        data_queue: "queue.Queue[np.ndarray]" = queue.Queue(maxsize=1)
+        stop_event = threading.Event()
+
+        def poll_levels() -> None:
+            while not stop_event.is_set():
+                try:
+                    level = self.get_level_data(trace)
+                except Exception:
+                    continue
+                # Keep only the freshest reading; drop any stale one.
+                try:
+                    data_queue.get_nowait()
+                except queue.Empty:
+                    pass
+                data_queue.put(level)
+                stop_event.wait(interval)
+
+        fetcher = threading.Thread(target=poll_levels, daemon=True)
+        fetcher.start()
+
         frame = 0
         try:
             while plt.fignum_exists(fig.number) and (n_frames is None or frame < n_frames):
-                level = self.get_level_data(trace)
+                try:
+                    level = data_queue.get(timeout=0.05)
+                except queue.Empty:
+                    plt.pause(0.05)
+                    continue
 
                 line.set_data(wavelength_nm, level)
                 ax.relim()
@@ -315,9 +346,10 @@ class AQ6317:
                 fig.canvas.flush_events()
 
                 frame += 1
-                if interval > 0:
-                    plt.pause(interval)
+                plt.pause(0.01)
         finally:
+            stop_event.set()
+            fetcher.join(timeout=max(interval, 1.0) + 2.0)
             self.stop_sweep()
             plt.ioff()
 
